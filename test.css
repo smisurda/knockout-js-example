@@ -1,0 +1,21 @@
+tfoot tr 
+{ 
+	font-weight: bold;
+	background-color: #e9eaed; 
+}
+
+#entry-total h5 { display:inline-block; }
+
+.navigation-button
+{
+	width: 100px;
+	height: 30px;
+	margin-right: 30px;
+	margin-top: 10px;
+	border-radius: 4px;
+	border: none;
+	color: white;
+	background-color: brown;
+}
+
+.error { border: 2px solid red; }

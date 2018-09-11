@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+ 	  <link rel="stylesheet" type="text/css" href="test.css">
+  	<script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.2.0/knockout-min.js"></script>
+  	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  </head>
+
+  <body>
+    <div class="container">
+      <h2>Time Entry System</h2>    
+      <table id="time-record" class="table" data-bind="visible: entries().length > 0"> <!--Display as long as there is at least one entry -->
+        <thead>
+          <tr>
+            <th>Client ID</th>
+            <th>Matter ID</th>
+            <th>Time Entry ID</th>
+            <th>Work Date</th> <!-- editable field --> 
+            <th>Work Description</th> <!-- editable field --> 
+            <th>Work Hours</th> <!-- editable field --> 
+            <th></th>
+          </tr>
+        </thead>
+        <tbody data-bind="foreach: currentPageItems"> <!-- Iterate over each entry in the JSON object -->
+          <tr>
+            <td data-bind="text: clientID"></td>
+            <td data-bind="text: matterID"></td>
+            <td data-bind="text: timeEntryID"></td>
+            <td><input class="work-date" data-bind="value: workDate"/></td>
+            <td><input class="work-description" data-bind="value: workDescription"/></td>
+            <td><input class="work-hours" data-bind="value: workHours"/></td>
+            <td><a href='#' data-bind='click: $root.deleteEntry'>Delete</a></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5">Total Hours</td>
+            <td data-bind="text: totalHours"></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div id="entry-total">
+        <h5 data-bind="text: entries().length"></h5>
+        <h5>Total Records Entered</h5>         
+      </div>
+      <button id="previous-button" class="navigation-button" data-bind="click:previousPage , visible: currentPageNumber() > 1">Previous</button>
+      <button id="next-button" class="navigation-button" data-bind="click:nextPage , visible: currentPageNumber() < maxPages()">Next</button>
+    </div>
+  </body>
+</html>
+
+
+<script>
+
+$(document).ready(installValidationHandlers);
+
+  function installValidationHandlers(){ // To deal with pagination
+  $(".work-hours").change(function () {
+    if($(this).val() == "" || isNaN($(this).val()))
+    {
+      $(this).addClass("error");
+      return false;
+    }  
+    else
+    {
+      $(this).removeClass("error");
+      return true;
+    }  
+  });
+
+  $(".work-date").change(function () { 
+    if(!/^\d{4}\-\d{2}\-\d{2}$/.test($(this).val() ) ) // Match the format YYYY-MM-DD
+    {  
+      $(this).addClass("error");
+      return false;
+    }  
+    else
+    {
+      $(this).removeClass("error");
+      return true;
+    } 
+  });  
+
+  $(".work-description").change(function () { 
+    if($(this).val() === "" ) 
+    {  
+      $(this).addClass("error");
+      return false;
+    }  
+    else
+    {
+      $(this).removeClass("error");
+      return true;
+    } 
+  });
+}
+/*
+  Knockout functions
+*/
+
+function Entry(data) {
+    this.clientID = data.clientID; // These three aren't updated, and don't need to be observable
+    this.matterID = data.matterID; 
+    this.timeEntryID = data.timeEntryID; 
+
+    this.workDate = ko.observable(data.workDate);
+    this.workDescription = ko.observable(data.workDescription);
+    this.workHours = ko.observable(data.workHours);
+}
+
+var entryModel = function(initialEntries) {
+    var self = this;
+    self.entries = ko.observableArray(initialEntries); // Load all rows into an object, for easy manipulation
+
+    // Remove an entry from the table, and KO object
+    self.deleteEntry = function(entry) {
+        self.entries.remove(entry);
+    };
+
+    // Iterate over entries, and total the Work Hours column
+    self.totalHours = ko.computed(function() { 
+        var total=0;
+        for(var i=0;i<self.entries().length;i++){
+          total+=parseFloat(self.entries()[i].workHours());
+        }
+        return total.toPrecision(3);
+    }, self);
+
+    self.currentPageNumber = ko.observable(1);
+    self.currentPageItems = ko.computed(function(){
+        return self.entries().slice((self.currentPageNumber()-1) * 5,  self.currentPageNumber() * 5);
+    });
+
+    self.maxPages = function(){
+      return Math.ceil(self.entries().length / 5);
+    };
+
+    self.nextPage = function(){
+      if(self.currentPageNumber() < self.maxPages()){
+        self.currentPageNumber(self.currentPageNumber()+1);
+        installValidationHandlers();
+      }  
+    };     
+
+    self.previousPage = function(){
+      if(self.currentPageNumber() > 1){
+        self.currentPageNumber(self.currentPageNumber()-1);
+        installValidationHandlers();
+      }  
+    }; 
+};
+
+var json_data = [
+  {
+    "Response": {
+      "TheMatters": [
+        {
+          "AreaOfLaw": "Litigation (General)",
+          "ClientId": "1001",
+          "ClientLabel": "1001",
+          "ClientName": "Martinez, David",
+          "MatterDescription": "Martinez v. Bernailillo County  Mr. Martinez suing Bernillilo County for failure to provide adequate and reasonable assistance to meet his physical challenge while attempting to attend a public board meeting.",
+          "MatterId": "1001-002",
+          "MatterLabel": "1001-001",
+          "MatterName": "Martinez v. Bernailillo County",
+          "MatterType": "Hourly Fee"
+        },
+        {
+          "AreaOfLaw": "Bankruptcy",
+          "ClientId": "1000",
+          "ClientLabel": "1000",
+          "ClientName": "Maguire, Robert",
+          "MatterDescription": "Maguire - Chapter 7",
+          "MatterId": "1001-001",
+          "MatterLabel": "1001-001",
+          "MatterName": "Maguire - Chapter 7",
+          "MatterType": "Flat Fee"
+        }
+      ],
+      "TheTimeEntries": [
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "63555227887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3530",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 0.9
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "63555396279"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3532",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 0.1
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "63555227888"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3531",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 0.2
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "63555396289"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3533",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 0.3
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "63555228887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3534",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 0.4
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "63555396479"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3535",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 0.5
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "63555220887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3536",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 0.6
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "63555392279"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-3537",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "This is a fun test",
+          "WorkHours": 0.7
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "73555227887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4530",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 1.9
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "73555396279"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4532",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 1.1
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "73555227888"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4531",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 1.2
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "73555396289"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4533",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 1.3
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "73555228887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4534",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 1.4
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "73555396479"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4535",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "Testing 2",
+          "WorkHours": 1.5
+        },
+        {
+          "MatterId": "1001-001",
+          "Metadata": {
+            "CreatedOn": "2014-12-26T16:10:23.070",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-26T16:10:23.070",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 10904000,
+            "TimerStartingTime": null,
+            "VersionId": "73555220887"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4536",
+          "WorkDate": "2014-12-26",
+          "WorkDescription": "This is testing abbreviations",
+          "WorkHours": 1.6
+        },
+        {
+          "MatterId": "1001-002",
+          "Metadata": {
+            "CreatedOn": "2014-12-28T20:44:38.797",
+            "ReadOnlyFields": null,
+            "SaveErrorInformation": {
+              "ErrorCode": null,
+              "ErrorDescription": null,
+              "ErrorLabel": null
+            },
+            "Status": "Draft",
+            "StatusDate": "2014-12-28T20:44:38.797",
+            "SubscriptionId": 30,
+            "TimerAccumulatedMilliseconds": 0,
+            "TimerStartingTime": null,
+            "VersionId": "73555392279"
+          },
+          "OwnerUserId": 1250,
+          "SelectionId0": "",
+          "SelectionId1": "",
+          "SelectionId2": "",
+          "SelectionId3": "",
+          "SelectionId4": "",
+          "SelectionId5": "",
+          "SelectionId6": "",
+          "SelectionId7": "",
+          "SelectionId8": "",
+          "SelectionId9": "",
+          "TimeEntryId": "I-30-1250-4537",
+          "WorkDate": "2014-12-28",
+          "WorkDescription": "This is a fun test",
+          "WorkHours": 1.7
+        }
+      ]
+    },
+    "Status": {
+      "ErrorCode": "OK",
+      "ErrorDescription": "",
+      "ErrorLabel": ""
+    }
+  }
+];
+
+var matters = json_data[0].Response.TheMatters;
+var time_entries = json_data[0].Response.TheTimeEntries;
+var table_data = new Array(); // The stuff we actually care about
+
+// Iterates over time entries, and pulls the appropriate data
+for (var i = 0; i < time_entries.length; i++) { 
+  var cid; // Client ID
+  for(var j = 0; j < matters.length; j++) { 
+    if(matters[j].MatterId === time_entries[i].MatterId)
+    {
+      cid = matters[j].ClientId;
+      break;
+    }
+  }
+  table_data.push(new Entry( { // Parse fields into entry, ignore others 
+    clientID: cid,
+    matterID: time_entries[i].MatterId,
+    timeEntryID: time_entries[i].TimeEntryId,
+    workDate: time_entries[i].WorkDate,
+    workHours: time_entries[i].WorkHours,
+    workDescription: time_entries[i].WorkDescription
+  }));
+};
+ 
+var viewModel = new entryModel(table_data); // Pass to model
+
+ko.applyBindings(viewModel);
+
+</script>
