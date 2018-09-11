@@ -1,2 +1,2 @@
 # knockout-js-example
-A short example project to test functionality of Knockout.JS
+A proof of concept timekeeping application to test the usage and functionality of Knockout.JS.
